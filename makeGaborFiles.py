@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from extraction.Fp import getOriGrad, enhance_fingerprint
 from compute_freq import compute_global_freq
+from pathlib import Path
 
 
 def drawOrientation(ori, background, mask=None, block_size=16, color=(255, 0, 0), thickness=1, is_block_ori=False):
@@ -64,25 +65,39 @@ def showOrientation(ori, background=None, mask=None, block_size=16, color=(0,0,2
     if not wait_to_show:
         cv2.waitKey()
 
+
 if __name__ == '__main__':
-    for i in range(2050):
-        print(i)
-        f_average = 0
-        for j in range(7,15):
-            image = cv2.imread('./db/'+str(i)+'/'+str(j)+'.bmp', 0)
-            ori = getOriGrad(image, w=31)
-            h, w = image.shape
-            h1, w1 = int(h / 2), int(w / 2)
-            f = 1. / compute_global_freq(image[h1-41:h1+41,w1-41:w1+41])
-            if j==7 or j==9 or j==11 or j==13:
-                f_average = f_average + f
-            image_enhance = enhance_fingerprint(image, ori, f=f, band_width=4.5)
-            cv2.imwrite('./database_20200312/'+str(i)+'/'+str(j)+'.bmp',image_enhance)
-        f_average = f_average/4
-        for j in range(15,31):
-            image = cv2.imread('./db/'+str(i)+'/'+str(j)+'.bmp', 0)
-            ori = getOriGrad(image, w=31)
-            h, w = image.shape
-            h1, w1 = int(h / 2), int(w / 2)
-            image_enhance = enhance_fingerprint(image, ori, f=f_average, band_width=4.5)
-            cv2.imwrite('./database_20200312/'+str(i)+'/'+str(j)+'.bmp',image_enhance)
+    store_path = Path('/media/nutalk/data/collection/store_1126_dry/export/aict')
+
+    enroll_path = Path('/media/nutalk/data/collection/store_1126_dry/export/aict/users/0022/enroll/')
+    verify_path = Path('/media/nutalk/data/collection/store_1126_dry/export/aict/users/0022/verify/')
+    
+    output_path = Path('/media/nutalk/data/collection/store_1126_dry/export/gabor')
+    
+    f_rec = []
+    for enroll_img_path in enroll_path.glob("*.png"):
+        img_path = str(enroll_img_path)
+        image = cv2.imread(img_path, 0)
+        ori = getOriGrad(image, w=31)
+        h, w = image.shape
+        h1, w1 = int(h / 2), int(w / 2)
+        f = 1. / compute_global_freq(image[h1-41:h1+41,w1-41:w1+41])
+        f_rec.append(f)
+        image_enhance = enhance_fingerprint(image, ori, f=f, band_width=4.5)
+
+        image_out_path = output_path / enroll_img_path.relative_to(store_path)
+        image_out_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(image_out_path),image_enhance)
+
+    f_average = np.average(f_rec)
+        
+    for verify_img_path in verify_path.glob('*.png'):
+        image = cv2.imread(str(verify_img_path), 0)
+        ori = getOriGrad(image, w=31)
+        h, w = image.shape
+        h1, w1 = int(h / 2), int(w / 2)
+        image_enhance = enhance_fingerprint(image, ori, f=f_average, band_width=4.5)
+
+        image_out_path = output_path / verify_img_path.relative_to(store_path)
+        image_out_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(image_out_path), image_enhance)
